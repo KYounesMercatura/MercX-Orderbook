@@ -1,3 +1,5 @@
+type Txid = blob;
+type Time = int;
 type Tick = 
  record {
    bestAsk: PriceResponse;
@@ -6,7 +8,7 @@ type Tick =
 type Result = 
  variant {
    err: text;
-   ok;
+   ok: vec OrderFilled;
  };
 type PriceResponse = 
  record {
@@ -35,6 +37,19 @@ type OrderPrice =
                     };
                Sell: nat;
              };
+ };
+type OrderFilled = 
+ record {
+   counterparty: Txid;
+   time: Time;
+   token0Value: BalanceChange;
+   token1Value: BalanceChange;
+ };
+type BalanceChange = 
+ variant {
+   CreditRecord: nat;
+   DebitRecord: nat;
+   NoChange;
  };
 service : {
   /// Clear the orderbook (dangerous - admin only)

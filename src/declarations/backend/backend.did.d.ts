@@ -2,6 +2,15 @@ import type { Principal } from '@dfinity/principal';
 import type { ActorMethod } from '@dfinity/agent';
 import type { IDL } from '@dfinity/candid';
 
+export type BalanceChange = { 'DebitRecord' : bigint } |
+  { 'CreditRecord' : bigint } |
+  { 'NoChange' : null };
+export interface OrderFilled {
+  'time' : Time,
+  'token0Value' : BalanceChange,
+  'counterparty' : Txid,
+  'token1Value' : BalanceChange,
+}
 export interface OrderPrice {
   'quantity' : { 'Buy' : [bigint, bigint] } |
     { 'Sell' : bigint },
@@ -14,9 +23,11 @@ export type OrderType = { 'FAK' : null } |
   { 'LMT' : null } |
   { 'MKT' : null };
 export interface PriceResponse { 'quantity' : bigint, 'price' : bigint }
-export type Result = { 'ok' : null } |
+export type Result = { 'ok' : Array<OrderFilled> } |
   { 'err' : string };
 export interface Tick { 'bestAsk' : PriceResponse, 'bestBid' : PriceResponse }
+export type Time = bigint;
+export type Txid = Uint8Array | number[];
 export interface _SERVICE {
   'clearOrderBook' : ActorMethod<[], undefined>,
   'depth' : ActorMethod<

@@ -5,43 +5,42 @@ import Result "mo:base/Result";
 import OrderBook "./OrderBook"; // Correct path to your OrderBook.mo
 
 actor Test {
-    // Local type aliases for easier use
     type OrderSide = OrderBook.OrderSide;
     type OrderType = OrderBook.OrderType;
     type OrderPrice = OrderBook.OrderPrice;
     type Tick = OrderBook.Tick;
-
+    type OrderFilled = OrderBook.OrderFilled; // 🛠 add this line
     // OrderBook state (persistent)
     private stable var ic_orderBook: OrderBook.OrderBook = OrderBook.create();
 
     /// Trade function (MAIN ENTRY)
-    public shared func trade(
-        txid: Blob,
-        side: OrderSide,
-        quantity: Nat,
-        price: Nat,
-        orderType: OrderType,
-        unitSize: Nat
-    ) : async Result.Result<(), Text> {
+   public shared func trade(
+    txid: Blob,
+    side: OrderSide,
+    quantity: Nat,
+    price: Nat,
+    orderType: OrderType,
+    unitSize: Nat
+) : async Result.Result<[OrderFilled], Text> {  // 🧠 notice the [OrderFilled] return type here!
 
-        let incoming : OrderPrice = switch side {
-            case (#Buy) { { quantity = #Buy((quantity, quantity * price / unitSize)); price = price } };
-            case (#Sell) { { quantity = #Sell(quantity); price = price } };
-        };
-
-        // ❗ Do NOT use await here — OrderBook.trade is NOT async
-        let result = OrderBook.trade(
-            ic_orderBook,
-            txid,
-            incoming,
-            orderType,
-            unitSize
-        );
-
-        ic_orderBook := result.ob;
-
-        return #ok(());
+    let incoming : OrderPrice = switch side {
+        case (#Buy) { { quantity = #Buy((quantity, quantity * price / unitSize)); price = price } };
+        case (#Sell) { { quantity = #Sell(quantity); price = price } };
     };
+
+    let result = OrderBook.trade(
+        ic_orderBook,
+        txid,
+        incoming,
+        orderType,
+        unitSize
+    );
+
+    ic_orderBook := result.ob;
+
+    return #ok(result.filled);  // 🧠 now actually *return* the fills
+};
+
 
     /// Get the best bid and best ask (Level 1)
     public query func level1() : async Tick {

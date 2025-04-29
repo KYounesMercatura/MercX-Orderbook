@@ -18,7 +18,20 @@ export const idlFactory = ({ IDL }) => {
     'LMT' : IDL.Null,
     'MKT' : IDL.Null,
   });
-  const Result = IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text });
+  const Time = IDL.Int;
+  const BalanceChange = IDL.Variant({
+    'DebitRecord' : IDL.Nat,
+    'CreditRecord' : IDL.Nat,
+    'NoChange' : IDL.Null,
+  });
+  const Txid = IDL.Vec(IDL.Nat8);
+  const OrderFilled = IDL.Record({
+    'time' : Time,
+    'token0Value' : BalanceChange,
+    'counterparty' : Txid,
+    'token1Value' : BalanceChange,
+  });
+  const Result = IDL.Variant({ 'ok' : IDL.Vec(OrderFilled), 'err' : IDL.Text });
   return IDL.Service({
     'clearOrderBook' : IDL.Func([], [], []),
     'depth' : IDL.Func(

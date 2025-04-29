@@ -1,8 +1,9 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>OrderBook Demo</title>
+  <title>FXMX OrderBook</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       background: #0f172a;
@@ -10,20 +11,22 @@
       font-family: Arial, sans-serif;
       padding: 20px;
     }
+
     main {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 20px;
-      
     }
-    form, .orderbook, .trades {
+
+    form, .orderbook, .trades, .chart-container {
       background: #1e293b;
       padding: 20px;
       border-radius: 12px;
       width: 100%;
-      max-width: 500px;
+      max-width: 600px;
     }
+
     input, select, button {
       width: 100%;
       margin: 5px 0;
@@ -32,30 +35,37 @@
       font-size: 1rem;
       border: none;
     }
+
     button {
       background: #3b82f6;
       color: white;
       cursor: pointer;
     }
+
     button:hover {
       background: #2563eb;
     }
+
     h2 {
       margin-bottom: 10px;
       color: #93c5fd;
     }
+
     table {
       width: 100%;
       margin-top: 10px;
       border-collapse: collapse;
     }
+
     th, td {
       border-bottom: 1px solid #334155;
       padding: 8px;
       text-align: center;
     }
+
     .buy { color: #22c55e; }
     .sell { color: #ef4444; }
+
     #tradeResult {
       margin-top: 10px;
       background: #334155;
@@ -64,217 +74,234 @@
       font-size: 0.9rem;
       word-break: break-word;
     }
+
+    .chart-container {
+      height: 300px;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 300px !important;
+    }
+
+    #tradeHistory {
+      max-height: 150px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+
+    .explainer {
+      font-size: 0.9rem;
+      background: #334155;
+      padding: 10px;
+      border-radius: 8px;
+      color: #cbd5e1;
+    }
   </style>
 </head>
 <body>
   <main>
     <form id="tradeForm">
-      <h2>Simulate Trade</h2>
-      <input id="txid" placeholder="Txid (any text)">
-      <input id="quantity" type="number" placeholder="Quantity">
-      <input id="price" type="number" placeholder="Price">
-      <input id="unitSize" type="number" placeholder="Unit Size">
+      <h2>Trade FXMX using USD</h2>
+      <div class="explainer">
+        You're trading FXMX using USDC (token0 is FXMX, token1 is USD).<br />
+        For example: "Buy 1000 FXMX at 2 USD per FXMX" means you pay 2000 USDC.
+      </div>
+      <input id="txid" placeholder="Transaction ID (any text)">
+      <input id="quantity" type="number" placeholder="FXMX Quantity">
+      <input id="price" type="number" placeholder="Price per Unit in USD">
+      <input id="unitSize" type="number" placeholder="Unit Size (e.g., 1)">
       <select id="orderType">
         <option value="LMT">Limit (LMT)</option>
         <option value="FOK">Fill or Kill (FOK)</option>
         <option value="FAK">Fill and Kill (FAK)</option>
         <option value="MKT">Market (MKT)</option>
       </select>
-      <button id="buyBtn">Buy</button>
-      <button id="sellBtn">Sell</button>
+      <button id="buyBtn">Buy FXMX</button>
+      <button id="sellBtn">Sell FXMX</button>
       <div id="tradeResult"></div>
     </form>
+
     <section class="orderbook">
-      <h2>📋 Open Orders</h2>
+      <h2>📋 Open Orders (Depth)</h2>
       <table>
         <thead>
-          <tr><th>Txid</th><th>Side</th><th>Price</th><th>Quantity</th><th>Unit Size</th></tr>
+          <tr><th>Side</th><th>Price (USD)</th><th>Quantity (FXMX)</th></tr>
         </thead>
-        <tbody id="openOrdersTable">
-          <!-- Open orders will appear here -->
-        </tbody>
-      </table>
-    </section>
-    
-    <section class="orderbook">
-      <h2>📈 Live OrderBook (Level 1)</h2>
-      <table>
-        <thead>
-          <tr><th>Side</th><th>Price</th><th>Quantity</th></tr>
-        </thead>
-        <tbody id="level1Table">
-          <!-- Best Bid/Ask -->
-        </tbody>
+        <tbody id="depthTable"></tbody>
       </table>
     </section>
 
     <section class="orderbook">
-      <h2>📊 OrderBook Depth</h2>
+      <h2>📈 Best Bid / Ask (Level 1)</h2>
       <table>
         <thead>
-          <tr><th>Side</th><th>Price</th><th>Quantity</th></tr>
+          <tr><th>Side</th><th>Price (USD)</th><th>Quantity (FXMX)</th></tr>
         </thead>
-        <tbody id="depthTable">
-          <!-- Full Depth -->
-        </tbody>
+        <tbody id="level1Table"></tbody>
       </table>
     </section>
 
     <section class="trades">
       <h2>🕒 Recent Trades</h2>
-      <ul id="tradeHistory">
-        <!-- Recent Trades -->
-      </ul>
+      <ul id="tradeHistory"></ul>
+    </section>
+
+    <section class="chart-container">
+      <h2>📊 FXMX Price Chart</h2>
+      <canvas id="priceChart"></canvas>
     </section>
   </main>
 
+</body>
+</html>
+
 <script type="module">
-  import { backend } from 'declarations/backend';
+import { backend } from 'declarations/backend';
 
-  async function refreshLevel1() {
-    try {
-      const res = await backend.level1();
-      const table = document.getElementById('level1Table');
-      table.innerHTML = '';
+let chart;
+let chartData = [];
 
-      if (res.bid) {
-        table.innerHTML += `
-          <tr class="buy">
-            <td>Buy</td>
-            <td>${res.bid.price}</td>
-            <td>${res.bid.quantity}</td>
-          </tr>`;
-      }
-      if (res.ask) {
-        table.innerHTML += `
-          <tr class="sell">
-            <td>Sell</td>
-            <td>${res.ask.price}</td>
-            <td>${res.ask.quantity}</td>
-          </tr>`;
-      }
-    } catch (err) {
-      console.error("Level1 fetch failed:", err);
-    }
-  }
-
-  async function refreshDepth() {
-  try {
-    const res = await backend.depth([]);
-
-    const table = document.getElementById('depthTable');
-    table.innerHTML = '';
-
-    if (res?.buy && Array.isArray(res.buy)) {
-      res.buy.forEach(bid => {
-        table.innerHTML += `
-          <tr class="buy">
-            <td>Buy</td>
-            <td>${bid.price}</td>
-            <td>${bid.quantity}</td>
-          </tr>
-        `;
-      });
-    }
-
-    if (res?.sell && Array.isArray(res.sell)) {
-      res.sell.forEach(ask => {
-        table.innerHTML += `
-          <tr class="sell">
-            <td>Sell</td>
-            <td>${ask.price}</td>
-            <td>${ask.quantity}</td>
-          </tr>
-        `;
-      });
-    }
-  } catch (err) {
-    console.error("Depth fetch failed:", err);
-  }
-}
-
-
-  async function handleTrade(side) {
-    const txidText = document.getElementById('txid').value.trim();
-    const quantity = Number(document.getElementById('quantity').value);
-    const price = Number(document.getElementById('price').value);
-    const unitSize = Number(document.getElementById('unitSize').value);
-    const orderTypeText = document.getElementById('orderType').value;
-
-    if (!txidText || quantity <= 0 || price <= 0 || unitSize <= 0) {
-      document.getElementById('tradeResult').innerText = "⚠️ Please fill all fields.";
-      return;
-    }
-
-    const txid = Array.from(new TextEncoder().encode(txidText));
-    const sideVariant = { [side]: null };
-    const orderTypeVariant = { [orderTypeText]: null };
-
-    try {
-      const result = await backend.trade(txid, sideVariant, quantity, price, orderTypeVariant, unitSize);
-      document.getElementById('tradeResult').innerText = "✅ Trade successful!";
-      addTradeToHistory(side, quantity, price);
-      await refreshLevel1();
-      await refreshDepth();
-    } catch (err) {
-      document.getElementById('tradeResult').innerText = "❌ Error: " + err.message;
-    }
-  }
-
-  function addTradeToHistory(side, quantity, price) {
-    const history = document.getElementById('tradeHistory');
-    const li = document.createElement('li');
-    li.className = side.toLowerCase();
-    li.textContent = `${side} ${quantity} @ ${price}`;
-    history.prepend(li);
-    if (history.children.length > 10) {
-      history.removeChild(history.lastChild);
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('buyBtn').addEventListener('click', (e) => {
-      e.preventDefault();
-      handleTrade('Buy');
-    });
-    document.getElementById('sellBtn').addEventListener('click', (e) => {
-      e.preventDefault();
-      handleTrade('Sell');
-    });
-
-    // Initial Load
-    refreshLevel1();
-    refreshDepth();
-    refreshOpenOrders();
-    setInterval(() => {
-      refreshLevel1();
-      refreshDepth();
-      refreshOpenOrders();
-    }, 5000); // Auto refresh every 5 seconds
+function updateLevel1() {
+  backend.level1().then((tick) => {
+    const table = document.getElementById("level1Table");
+    table.innerHTML = `
+      <tr class="buy"><td>Buy</td><td>${tick.bestBid.price}</td><td>${tick.bestBid.quantity}</td></tr>
+      <tr class="sell"><td>Sell</td><td>${tick.bestAsk.price}</td><td>${tick.bestAsk.quantity}</td></tr>
+    `;
+  }).catch(err => {
+    console.error("Level1 fetch failed:", err);
   });
-  async function refreshOpenOrders() {
-  try {
-    const res = await backend.getOpenOrders(); // <-- You must have a function for this in backend
-    const table = document.getElementById('openOrdersTable');
-    table.innerHTML = '';
-
-    res.forEach(order => {
-      const side = order.side.hasOwnProperty('Buy') ? 'Buy' : 'Sell';
-      table.innerHTML += `
-        <tr class="${side.toLowerCase()}">
-          <td>${new TextDecoder().decode(new Uint8Array(order.txid))}</td>
-          <td>${side}</td>
-          <td>${order.price}</td>
-          <td>${order.quantity}</td>
-          <td>${order.unit_size}</td>
-        </tr>
-      `;
-    });
-  } catch (err) {
-    console.error("Open Orders fetch failed:", err);
-  }
 }
 
+function updateDepth() {
+  backend.depth([]).then((depth) => {
+    const table = document.getElementById("depthTable");
+    table.innerHTML = "";
+    depth.bid.forEach(bid => {
+      table.innerHTML += `<tr class="buy"><td>Buy</td><td>${bid.price}</td><td>${bid.quantity}</td></tr>`;
+    });
+    depth.ask.forEach(ask => {
+      table.innerHTML += `<tr class="sell"><td>Sell</td><td>${ask.price}</td><td>${ask.quantity}</td></tr>`;
+    });
+  }).catch(err => {
+    console.error("Depth fetch failed:", err);
+  });
+}
+
+function addTradeToHistory(side, quantity, price) {
+  const history = document.getElementById("tradeHistory");
+  const li = document.createElement("li");
+  li.className = side.toLowerCase();
+  li.textContent = `${side} ${quantity} FXMX @ ${price} USD`;
+  history.prepend(li);
+  if (history.children.length > 10) history.removeChild(history.lastChild);
+}
+
+function updateChart(price) {
+  if (!chart) return;
+  const now = new Date().toLocaleTimeString();
+  chartData.push({ x: now, y: price });
+  if (chartData.length > 20) chartData.shift();
+  chart.data.labels = chartData.map(p => p.x);
+  chart.data.datasets[0].data = chartData.map(p => p.y);
+  chart.update();
+}
+
+async function handleTrade(side) {
+  const txid = document.getElementById("txid").value.trim();
+  const quantity = Number(document.getElementById("quantity").value);
+  const price = Number(document.getElementById("price").value);
+  const unitSize = Number(document.getElementById("unitSize").value);
+  const orderType = document.getElementById("orderType").value;
+
+  const resultBox = document.getElementById("tradeResult");
+  resultBox.textContent = "";
+
+  if (!txid || quantity <= 0 || price <= 0 || unitSize <= 0) {
+    resultBox.textContent = "⚠️ Please fill all fields correctly.";
+    return;
+  }
+
+  const encodedTxid = Array.from(new TextEncoder().encode(txid));
+  const sideVariant = { [side]: null };
+  const orderTypeVariant = { [orderType]: null };
+
+  try {
+    const result = await backend.trade(encodedTxid, sideVariant, quantity, price, orderTypeVariant, unitSize);
+    if ("ok" in result) {
+      resultBox.textContent = `✅ Trade complete: ${result.ok.length} fills`;
+      result.ok.forEach(fill => {
+        const fillQty = fill.token0Value.CreditRecord || fill.token0Value.DebitRecord || 0;
+        const fillAmt = fill.token1Value.CreditRecord || fill.token1Value.DebitRecord || 0;
+        const avgPrice = (fillAmt / fillQty).toFixed(2);
+        addTradeToHistory(side, fillQty, avgPrice);
+        updateChart(Number(avgPrice));
+      });
+    } else {
+      resultBox.textContent = "❌ Error: " + result.err;
+    }
+  } catch (err) {
+    resultBox.textContent = "❌ Error: " + err.message;
+  }
+
+  updateLevel1();
+  updateDepth();
+}
+
+function setupChart() {
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Price (USD)',
+        data: [],
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: {
+          beginAtZero: false,
+          ticks: { color: '#e2e8f0' },
+          grid: { color: '#334155' }
+        },
+        x: {
+          ticks: { color: '#e2e8f0' },
+          grid: { color: '#334155' }
+        }
+      }
+    }
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("buyBtn").addEventListener("click", e => {
+    e.preventDefault();
+    handleTrade("Buy");
+  });
+
+  document.getElementById("sellBtn").addEventListener("click", e => {
+    e.preventDefault();
+    handleTrade("Sell");
+  });
+
+  setupChart();
+  updateLevel1();
+  updateDepth();
+  setInterval(() => {
+    updateLevel1();
+    updateDepth();
+  }, 5000);
+});
 </script>
 
 </body>
