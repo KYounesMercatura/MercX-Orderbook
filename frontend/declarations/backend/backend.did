@@ -1,0 +1,58 @@
+type Tick = 
+ record {
+   bestAsk: PriceResponse;
+   bestBid: PriceResponse;
+ };
+type Result = 
+ variant {
+   err: text;
+   ok;
+ };
+type PriceResponse = 
+ record {
+   price: nat;
+   quantity: nat;
+ };
+type OrderType = 
+ variant {
+   FAK;
+   FOK;
+   LMT;
+   MKT;
+ };
+type OrderSide = 
+ variant {
+   Buy;
+   Sell;
+ };
+type OrderPrice = 
+ record {
+   price: nat;
+   quantity: variant {
+               Buy: record {
+                      nat;
+                      nat;
+                    };
+               Sell: nat;
+             };
+ };
+service : {
+  /// Clear the orderbook (dangerous - admin only)
+  clearOrderBook: () -> ();
+  /// Get orderbook depth (top N orders)
+  depth: (opt nat) ->
+   (record {
+      ask: vec PriceResponse;
+      bid: vec PriceResponse;
+    }) query;
+  /// Get specific order by Txid
+  getOrder: (blob, opt OrderSide) -> (opt OrderPrice) query;
+  /// Check if an order is still in the book by Txid
+  inOrderBook: (blob) -> (bool) query;
+  /// Get the best bid and best ask (Level 1)
+  level1: () -> (Tick) query;
+  /// Remove specific order by Txid
+  removeOrder: (blob, opt OrderSide) -> ();
+  /// Trade function (MAIN ENTRY)
+  trade: (blob, OrderSide, nat, nat, OrderType, nat) -> (Result);
+}
