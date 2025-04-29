@@ -1,9 +1,11 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>FXMX OrderBook</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
   <style>
     body {
       background: #0f172a;
@@ -11,22 +13,20 @@
       font-family: Arial, sans-serif;
       padding: 20px;
     }
-
     main {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
     }
-
     form, .orderbook, .trades, .chart-container {
       background: #1e293b;
       padding: 20px;
       border-radius: 12px;
       width: 100%;
-      max-width: 600px;
     }
-
     input, select, button {
       width: 100%;
       margin: 5px 0;
@@ -35,37 +35,31 @@
       font-size: 1rem;
       border: none;
     }
-
     button {
-      background: #3b82f6;
+      background: linear-gradient(to right, #3b82f6, #2563eb);
       color: white;
       cursor: pointer;
+      font-weight: bold;
     }
-
     button:hover {
       background: #2563eb;
     }
-
     h2 {
       margin-bottom: 10px;
       color: #93c5fd;
     }
-
     table {
       width: 100%;
       margin-top: 10px;
       border-collapse: collapse;
     }
-
     th, td {
       border-bottom: 1px solid #334155;
       padding: 8px;
       text-align: center;
     }
-
     .buy { color: #22c55e; }
     .sell { color: #ef4444; }
-
     #tradeResult {
       margin-top: 10px;
       background: #334155;
@@ -74,22 +68,11 @@
       font-size: 0.9rem;
       word-break: break-word;
     }
-
-    .chart-container {
-      height: 300px;
-    }
-
-    canvas {
-      width: 100% !important;
-      height: 300px !important;
-    }
-
     #tradeHistory {
       max-height: 150px;
       overflow-y: auto;
       margin-top: 10px;
     }
-
     .explainer {
       font-size: 0.9rem;
       background: #334155;
@@ -97,212 +80,240 @@
       border-radius: 8px;
       color: #cbd5e1;
     }
+    .chart-container canvas {
+      border: 1px solid #334155;
+      background: #0f172a;
+      border-radius: 8px;
+    }
+    tr:hover {
+      background: #1e293b;
+    }
   </style>
 </head>
 <body>
-  <main>
-    <form id="tradeForm">
-      <h2>Trade FXMX using USD</h2>
-      <div class="explainer">
-        You're trading FXMX using USDC (token0 is FXMX, token1 is USD).<br />
-        For example: "Buy 1000 FXMX at 2 USD per FXMX" means you pay 2000 USDC.
-      </div>
-      <input id="txid" placeholder="Transaction ID (any text)">
-      <input id="quantity" type="number" placeholder="FXMX Quantity">
-      <input id="price" type="number" placeholder="Price per Unit in USD">
-      <input id="unitSize" type="number" placeholder="Unit Size (e.g., 1)">
-      <select id="orderType">
-        <option value="LMT">Limit (LMT)</option>
-        <option value="FOK">Fill or Kill (FOK)</option>
-        <option value="FAK">Fill and Kill (FAK)</option>
-        <option value="MKT">Market (MKT)</option>
-      </select>
-      <button id="buyBtn">Buy FXMX</button>
-      <button id="sellBtn">Sell FXMX</button>
-      <div id="tradeResult"></div>
-    </form>
+<main>
+  <form id="tradeForm">
+    <h2>Trade FXMX using USD</h2>
+    <div class="explainer">
+      You're trading FXMX using USDC (token0 is FXMX, token1 is USD).<br />
+      Example: "Buy 1000 FXMX at 2 USD" means you pay 2000 USDC.
+    </div>
+    <input id="txid" placeholder="Transaction ID (any text)">
+    <input id="quantity" type="number" placeholder="FXMX Quantity">
+    <input id="price" type="number" placeholder="Price per Unit in USD">
+    <input id="unitSize" type="number" placeholder="Unit Size (e.g., 1)">
+    <select id="orderType">
+      <option value="LMT">Limit (LMT)</option>
+      <option value="FOK">Fill or Kill (FOK)</option>
+      <option value="FAK">Fill and Kill (FAK)</option>
+      <option value="MKT">Market (MKT)</option>
+    </select>
+    <button id="buyBtn">Buy FXMX</button>
+    <button id="sellBtn">Sell FXMX</button>
+    <div id="tradeResult"></div>
+  </form>
 
-    <section class="orderbook">
-      <h2>📋 Open Orders (Depth)</h2>
-      <table>
-        <thead>
-          <tr><th>Side</th><th>Price (USD)</th><th>Quantity (FXMX)</th></tr>
-        </thead>
-        <tbody id="depthTable"></tbody>
-      </table>
-    </section>
+  <section class="orderbook">
+    <h2>📋 Open Orders (Depth)</h2>
+    <table>
+      <thead>
+        <tr><th>Side</th><th>Price (USD)</th><th>Quantity (FXMX)</th></tr>
+      </thead>
+      <tbody id="depthTable"></tbody>
+    </table>
+  </section>
 
-    <section class="orderbook">
-      <h2>📈 Best Bid / Ask (Level 1)</h2>
-      <table>
-        <thead>
-          <tr><th>Side</th><th>Price (USD)</th><th>Quantity (FXMX)</th></tr>
-        </thead>
-        <tbody id="level1Table"></tbody>
-      </table>
-    </section>
+  <section class="orderbook">
+    <h2>📈 Best Bid / Ask (Level 1)</h2>
+    <table>
+      <thead>
+        <tr><th>Side</th><th>Price (USD)</th><th>Quantity (FXMX)</th></tr>
+      </thead>
+      <tbody id="level1Table"></tbody>
+    </table>
+  </section>
 
-    <section class="trades">
-      <h2>🕒 Recent Trades</h2>
-      <ul id="tradeHistory"></ul>
-    </section>
+  <section class="trades">
+    <h2>🕒 Recent Trades</h2>
+    <ul id="tradeHistory"></ul>
+  </section>
 
-    <section class="chart-container">
-      <h2>📊 FXMX Price Chart</h2>
-      <canvas id="priceChart"></canvas>
-    </section>
-  </main>
+  <section class="chart-container">
+    <h2>💹 Price Chart (Line)</h2>
+    <canvas id="priceChart" width="500" height="300"></canvas>
+  </section>
 
-</body>
-</html>
+  <section class="chart-container">
+    <h2>📊 Price Chart (Candlesticks)</h2>
+    <canvas id="candlestickChart" width="500" height="300"></canvas>
+  </section>
+</main>
+
 
 <script type="module">
-import { backend } from 'declarations/backend';
-
-let chart;
-let chartData = [];
-
-function updateLevel1() {
-  backend.level1().then((tick) => {
-    const table = document.getElementById("level1Table");
-    table.innerHTML = `
-      <tr class="buy"><td>Buy</td><td>${tick.bestBid.price}</td><td>${tick.bestBid.quantity}</td></tr>
-      <tr class="sell"><td>Sell</td><td>${tick.bestAsk.price}</td><td>${tick.bestAsk.quantity}</td></tr>
-    `;
-  }).catch(err => {
-    console.error("Level1 fetch failed:", err);
-  });
-}
-
-function updateDepth() {
-  backend.depth([]).then((depth) => {
-    const table = document.getElementById("depthTable");
-    table.innerHTML = "";
-    depth.bid.forEach(bid => {
-      table.innerHTML += `<tr class="buy"><td>Buy</td><td>${bid.price}</td><td>${bid.quantity}</td></tr>`;
-    });
-    depth.ask.forEach(ask => {
-      table.innerHTML += `<tr class="sell"><td>Sell</td><td>${ask.price}</td><td>${ask.quantity}</td></tr>`;
-    });
-  }).catch(err => {
-    console.error("Depth fetch failed:", err);
-  });
-}
-
-function addTradeToHistory(side, quantity, price) {
-  const history = document.getElementById("tradeHistory");
-  const li = document.createElement("li");
-  li.className = side.toLowerCase();
-  li.textContent = `${side} ${quantity} FXMX @ ${price} USD`;
-  history.prepend(li);
-  if (history.children.length > 10) history.removeChild(history.lastChild);
-}
-
-function updateChart(price) {
-  if (!chart) return;
-  const now = new Date().toLocaleTimeString();
-  chartData.push({ x: now, y: price });
-  if (chartData.length > 20) chartData.shift();
-  chart.data.labels = chartData.map(p => p.x);
-  chart.data.datasets[0].data = chartData.map(p => p.y);
-  chart.update();
-}
-
-async function handleTrade(side) {
-  const txid = document.getElementById("txid").value.trim();
-  const quantity = Number(document.getElementById("quantity").value);
-  const price = Number(document.getElementById("price").value);
-  const unitSize = Number(document.getElementById("unitSize").value);
-  const orderType = document.getElementById("orderType").value;
-
-  const resultBox = document.getElementById("tradeResult");
-  resultBox.textContent = "";
-
-  if (!txid || quantity <= 0 || price <= 0 || unitSize <= 0) {
-    resultBox.textContent = "⚠️ Please fill all fields correctly.";
-    return;
+  import { backend } from 'declarations/backend';
+  
+  const decimals = 6;
+  let chartLine;
+  let chartCandle;
+  let chartData = [];
+  
+  async function updateLevel1() {
+    try {
+      const tick = await backend.level1();
+      const table = document.getElementById("level1Table");
+      table.innerHTML = `
+        <tr class="buy"><td>Buy</td><td>${Number(tick.bestBid.price) / (10 ** decimals)}</td><td>${Number(tick.bestBid.quantity) / (10 ** decimals)}</td></tr>
+        <tr class="sell"><td>Sell</td><td>${Number(tick.bestAsk.price) / (10 ** decimals)}</td><td>${Number(tick.bestAsk.quantity) / (10 ** decimals)}</td></tr>
+      `;
+    } catch (err) {
+      console.error("Level1 fetch failed:", err);
+    }
   }
-
-  const encodedTxid = Array.from(new TextEncoder().encode(txid));
-  const sideVariant = { [side]: null };
-  const orderTypeVariant = { [orderType]: null };
-
-  try {
-    const result = await backend.trade(encodedTxid, sideVariant, quantity, price, orderTypeVariant, unitSize);
-    if ("ok" in result) {
-      resultBox.textContent = `✅ Trade complete: ${result.ok.length} fills`;
-      result.ok.forEach(fill => {
-        const fillQty = fill.token0Value.CreditRecord || fill.token0Value.DebitRecord || 0;
-        const fillAmt = fill.token1Value.CreditRecord || fill.token1Value.DebitRecord || 0;
-        const avgPrice = (fillAmt / fillQty).toFixed(2);
-        addTradeToHistory(side, fillQty, avgPrice);
-        updateChart(Number(avgPrice));
+  
+  async function updateDepth() {
+    try {
+      const depth = await backend.depth([]);
+      const table = document.getElementById("depthTable");
+      table.innerHTML = "";
+      depth.bid.forEach(bid => {
+        table.innerHTML += `<tr class="buy"><td>Buy</td><td>${Number(bid.price) / (10 ** decimals)}</td><td>${Number(bid.quantity) / (10 ** decimals)}</td></tr>`;
       });
-    } else {
-      resultBox.textContent = "❌ Error: " + result.err;
+      depth.ask.forEach(ask => {
+        table.innerHTML += `<tr class="sell"><td>Sell</td><td>${Number(ask.price) / (10 ** decimals)}</td><td>${Number(ask.quantity) / (10 ** decimals)}</td></tr>`;
+      });
+    } catch (err) {
+      console.error("Depth fetch failed:", err);
     }
-  } catch (err) {
-    resultBox.textContent = "❌ Error: " + err.message;
   }
-
-  updateLevel1();
-  updateDepth();
-}
-
-function setupChart() {
-  const ctx = document.getElementById('priceChart').getContext('2d');
-  chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Price (USD)',
-        data: [],
-        borderColor: '#3b82f6',
-        backgroundColor: 'rgba(59, 130, 246, 0.2)',
-        tension: 0.3
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        y: {
-          beginAtZero: false,
-          ticks: { color: '#e2e8f0' },
-          grid: { color: '#334155' }
-        },
-        x: {
-          ticks: { color: '#e2e8f0' },
-          grid: { color: '#334155' }
+  
+  function addTradeToHistory(side, quantity, price) {
+    const history = document.getElementById("tradeHistory");
+    const li = document.createElement("li");
+    li.className = side.toLowerCase();
+    li.textContent = `${side} ${Number(quantity) / (10 ** decimals)} FXMX @ ${Number(price) / (10 ** decimals)} USD`;
+    history.prepend(li);
+    if (history.children.length > 10) history.removeChild(history.lastChild);
+  }
+  
+  function updateLineChart(price) {
+    if (!chartLine) return;
+    const now = new Date().toLocaleTimeString();
+    chartData.push({ x: now, y: Number(price) / (10 ** decimals) });
+    if (chartData.length > 20) chartData.shift();
+    chartLine.data.labels = chartData.map(p => p.x);
+    chartLine.data.datasets[0].data = chartData.map(p => p.y);
+    chartLine.update();
+  }
+  
+  async function loadKLines() {
+    try {
+      const interval = 60;
+      const data = await backend.getK(interval);
+      const candleData = data.map(k => ({
+        x: new Date(Number(k.updatedTs) / 1_000_000),
+        o: Number(k.open) / (10 ** decimals),
+        h: Number(k.high) / (10 ** decimals),
+        l: Number(k.low) / (10 ** decimals),
+        c: Number(k.close) / (10 ** decimals)
+      }));
+  
+      const canvas = document.getElementById('candlestickChart');
+      if (!canvas) return console.error("Candlestick canvas not found");
+      const ctx = canvas.getContext('2d');
+  
+      if (chartCandle) chartCandle.destroy();
+  
+      chartCandle = new Chart(ctx, {
+        type: 'candlestick',
+        data: { datasets: [{ label: 'FXMX/USD', data: candleData }] },
+        options: {
+          scales: {
+            x: { type: 'time', time: { unit: 'minute' }, adapters: { date: { locale: 'en' }}}
+          }
         }
-      }
+      });
+    } catch (e) {
+      console.error("Error loading KLines:", e);
     }
-  });
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("buyBtn").addEventListener("click", e => {
-    e.preventDefault();
-    handleTrade("Buy");
-  });
-
-  document.getElementById("sellBtn").addEventListener("click", e => {
-    e.preventDefault();
-    handleTrade("Sell");
-  });
-
-  setupChart();
-  updateLevel1();
-  updateDepth();
-  setInterval(() => {
+  }
+  
+  async function handleTrade(side) {
+    const txid = document.getElementById("txid").value.trim();
+    const quantity = Math.floor(Number(document.getElementById("quantity").value) * (10 ** decimals));
+    const price = Math.floor(Number(document.getElementById("price").value) * (10 ** decimals));
+    const unitSize = Math.floor(Number(document.getElementById("unitSize").value) * (10 ** decimals));
+    const orderType = document.getElementById("orderType").value;
+    const resultBox = document.getElementById("tradeResult");
+    resultBox.textContent = "";
+  
+    if (!txid || quantity <= 0 || price <= 0 || unitSize <= 0) {
+      resultBox.textContent = "⚠️ Please fill all fields correctly.";
+      return;
+    }
+  
+    try {
+      const encodedTxid = Array.from(new TextEncoder().encode(txid));
+      const sideVariant = { [side]: null };
+      const orderTypeVariant = { [orderType]: null };
+      const result = await backend.trade(encodedTxid, sideVariant, quantity, price, orderTypeVariant, unitSize);
+  
+      if ("ok" in result) {
+        resultBox.textContent = `✅ Trade complete: ${result.ok.length} fills`;
+        result.ok.forEach(fill => {
+          const fillQty = Number(fill.token0Value.CreditRecord || fill.token0Value.DebitRecord || 0);
+          const fillAmt = Number(fill.token1Value.CreditRecord || fill.token1Value.DebitRecord || 0);
+          const avgPrice = (fillAmt / fillQty).toFixed(2);
+          addTradeToHistory(side, fillQty, avgPrice);
+          updateLineChart(fillAmt / fillQty);
+        });
+        await loadKLines();
+      } else {
+        resultBox.textContent = "❌ Error: " + result.err;
+      }
+    } catch (err) {
+      resultBox.textContent = "❌ Error: " + err.message;
+    }
     updateLevel1();
     updateDepth();
-  }, 5000);
-});
-</script>
-
-</body>
-</html>
+  }
+  
+  function setupLineChart() {
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    chartLine = new Chart(ctx, {
+      type: 'line',
+      data: { labels: [], datasets: [{ label: 'Price (USD)', data: [], borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.2)', tension: 0.3 }] },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false }},
+        scales: {
+          y: { beginAtZero: false, ticks: { color: '#e2e8f0' }, grid: { color: '#334155' }},
+          x: { ticks: { color: '#e2e8f0' }, grid: { color: '#334155' }}
+        }
+      }
+    });
+  }
+  
+  document.addEventListener('DOMContentLoaded', () => {
+    setupLineChart();
+    updateLevel1();
+    updateDepth();
+    loadKLines();
+  
+    setInterval(updateLevel1, 5000);
+    setInterval(updateDepth, 5000);
+    setInterval(loadKLines, 60000);
+  
+    document.getElementById("buyBtn").addEventListener("click", (e) => {
+      e.preventDefault();
+      handleTrade("Buy");
+    });
+    document.getElementById("sellBtn").addEventListener("click", (e) => {
+      e.preventDefault();
+      handleTrade("Sell");
+    });
+  });
+  </script>
+  </body>
+  </html>
+  

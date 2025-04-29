@@ -5,6 +5,16 @@ import type { IDL } from '@dfinity/candid';
 export type BalanceChange = { 'DebitRecord' : bigint } |
   { 'CreditRecord' : bigint } |
   { 'NoChange' : null };
+export interface KBar {
+  'kid' : bigint,
+  'low' : bigint,
+  'vol' : Vol,
+  'high' : bigint,
+  'close' : bigint,
+  'open' : bigint,
+  'updatedTs' : Timestamp,
+}
+export type KInterval = bigint;
 export interface OrderFilled {
   'time' : Time,
   'token0Value' : BalanceChange,
@@ -27,13 +37,16 @@ export type Result = { 'ok' : Array<OrderFilled> } |
   { 'err' : string };
 export interface Tick { 'bestAsk' : PriceResponse, 'bestBid' : PriceResponse }
 export type Time = bigint;
+export type Timestamp = bigint;
 export type Txid = Uint8Array | number[];
+export interface Vol { 'value0' : bigint, 'value1' : bigint }
 export interface _SERVICE {
   'clearOrderBook' : ActorMethod<[], undefined>,
   'depth' : ActorMethod<
     [[] | [bigint]],
     { 'ask' : Array<PriceResponse>, 'bid' : Array<PriceResponse> }
   >,
+  'getK' : ActorMethod<[KInterval], Array<KBar>>,
   'getOrder' : ActorMethod<
     [Uint8Array | number[], [] | [OrderSide]],
     [] | [OrderPrice]

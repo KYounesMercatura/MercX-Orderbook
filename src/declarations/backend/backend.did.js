@@ -1,5 +1,17 @@
 export const idlFactory = ({ IDL }) => {
   const PriceResponse = IDL.Record({ 'quantity' : IDL.Nat, 'price' : IDL.Nat });
+  const KInterval = IDL.Nat;
+  const Vol = IDL.Record({ 'value0' : IDL.Nat, 'value1' : IDL.Nat });
+  const Timestamp = IDL.Nat;
+  const KBar = IDL.Record({
+    'kid' : IDL.Nat,
+    'low' : IDL.Nat,
+    'vol' : Vol,
+    'high' : IDL.Nat,
+    'close' : IDL.Nat,
+    'open' : IDL.Nat,
+    'updatedTs' : Timestamp,
+  });
   const OrderSide = IDL.Variant({ 'Buy' : IDL.Null, 'Sell' : IDL.Null });
   const OrderPrice = IDL.Record({
     'quantity' : IDL.Variant({
@@ -44,6 +56,7 @@ export const idlFactory = ({ IDL }) => {
         ],
         ['query'],
       ),
+    'getK' : IDL.Func([KInterval], [IDL.Vec(KBar)], ['query']),
     'getOrder' : IDL.Func(
         [IDL.Vec(IDL.Nat8), IDL.Opt(OrderSide)],
         [IDL.Opt(OrderPrice)],

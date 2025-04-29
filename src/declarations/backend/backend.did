@@ -1,4 +1,10 @@
+type Vol = 
+ record {
+   value0: nat;
+   value1: nat;
+ };
 type Txid = blob;
+type Timestamp = nat;
 type Time = int;
 type Tick = 
  record {
@@ -45,6 +51,17 @@ type OrderFilled =
    token0Value: BalanceChange;
    token1Value: BalanceChange;
  };
+type KInterval = nat;
+type KBar = 
+ record {
+   close: nat;
+   high: nat;
+   kid: nat;
+   low: nat;
+   open: nat;
+   updatedTs: Timestamp;
+   vol: Vol;
+ };
 type BalanceChange = 
  variant {
    CreditRecord: nat;
@@ -52,22 +69,24 @@ type BalanceChange =
    NoChange;
  };
 service : {
-  /// Clear the orderbook (dangerous - admin only)
+  /// Clear the orderbook (admin-only)
   clearOrderBook: () -> ();
-  /// Get orderbook depth (top N orders)
+  /// Full orderbook depth (useful for UI)
   depth: (opt nat) ->
    (record {
       ask: vec PriceResponse;
       bid: vec PriceResponse;
     }) query;
-  /// Get specific order by Txid
+  /// 📊 Return K-line chart data for selected interval
+  getK: (KInterval) -> (vec KBar) query;
+  /// Get specific order
   getOrder: (blob, opt OrderSide) -> (opt OrderPrice) query;
-  /// Check if an order is still in the book by Txid
+  /// Check if specific order exists
   inOrderBook: (blob) -> (bool) query;
-  /// Get the best bid and best ask (Level 1)
+  /// Top-of-book prices
   level1: () -> (Tick) query;
-  /// Remove specific order by Txid
+  /// Remove an order manually
   removeOrder: (blob, opt OrderSide) -> ();
-  /// Trade function (MAIN ENTRY)
+  /// MAIN TRADE FUNCTION
   trade: (blob, OrderSide, nat, nat, OrderType, nat) -> (Result);
 }
